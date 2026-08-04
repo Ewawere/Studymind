@@ -27,28 +27,25 @@ model User {
   imageUrl      String?
   phone         String?
 
-  // Onboarding profile
-  country       String?   // NG, GH, KE, ZA, OTHER
+  country       String?
   curriculumId  String?
   curriculum    Curriculum? @relation(fields: [curriculumId], references: [id])
-  level         String?   // SS1, SS2, SS3, Undergraduate, Other
-  primaryFocus  String?   // Main subject focus
-  stressPoint   String?   // What stresses them most
+  level         String?
+  primaryFocus  String?
+  stressPoint   String?
   targetExamDate DateTime?
-  weakSubjects  String[]  // Subject codes the user flagged as weak
-  learningGoals String[]  // Free-form goals
-  preferredExplanationStyle String? // simple | detailed | examples | socratic
-  dailyStudyTargetMin Int? // Minutes per day
-  timezone      String?   // e.g. Africa/Lagos
+  weakSubjects  String[]
+  learningGoals String[]
+  preferredExplanationStyle String?
+  dailyStudyTargetMin Int?
+  timezone      String?
   onboardingDone Boolean  @default(false)
 
-  // Streak & engagement
   currentStreak Int       @default(0)
   longestStreak Int       @default(0)
   lastStudyDate DateTime?
   totalStudyMinutes Int   @default(0)
 
-  // Subscription
   plan          Plan      @default(FREE)
   planExpiresAt DateTime?
 
@@ -150,7 +147,31 @@ model Concept {
   conceptStates ConceptState[]
   questions     Question[]
 
+  // Concept graph edges
+  prerequisitesFrom ConceptRelation[] @relation("ConceptFrom")
+  prerequisitesTo   ConceptRelation[] @relation("ConceptTo")
+
   @@index([topicId])
+}
+
+/// Directed edge in the concept graph.
+/// relationType: "prerequisite" | "related" | "part_of"
+model ConceptRelation {
+  id             String @id @default(cuid())
+  fromConceptId  String
+  toConceptId    String
+  relationType   String @default("prerequisite")
+  strength       Float  @default(1.0) // 0–1, how strongly related
+
+  fromConcept Concept @relation("ConceptFrom", fields: [fromConceptId], references: [id], onDelete: Cascade)
+  toConcept   Concept @relation("ConceptTo", fields: [toConceptId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([fromConceptId, toConceptId, relationType])
+  @@index([fromConceptId])
+  @@index([toConceptId])
+  @@index([relationType])
 }
 
 // LEARNING BRAIN
@@ -181,12 +202,15 @@ model ConceptState {
   conceptId       String
   concept         Concept  @relation(fields: [conceptId], references: [id], onDelete: Cascade)
 
-  masteryScore    Float    @default(0)
+  masteryScore    Float    @default(0)  // 0–100 knowledge estimate
+  confidence      Float    @default(0)  // 0–100 consistency / non-guessing
   easeFactor      Float    @default(2.5)
   intervalDays    Int      @default(0)
   repetitions     Int      @default(0)
   nextReviewAt    DateTime?
   lastReviewedAt  DateTime?
+  // Rolling consistency window (last N results as bit flags stored compactly)
+  recentResults   String   @default("") // e.g. "10110" most-recent last
   updatedAt       DateTime @updatedAt
 
   @@unique([userId, conceptId])
