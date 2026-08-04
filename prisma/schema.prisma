@@ -27,19 +27,28 @@ model User {
   imageUrl      String?
   phone         String?
 
-  country       String?
+  // Onboarding profile
+  country       String?   // NG, GH, KE, ZA, OTHER
   curriculumId  String?
   curriculum    Curriculum? @relation(fields: [curriculumId], references: [id])
-  level         String?
-  primaryFocus  String?
+  level         String?   // SS1, SS2, SS3, Undergraduate, Other
+  primaryFocus  String?   // Main subject focus
+  stressPoint   String?   // What stresses them most
+  targetExamDate DateTime?
+  weakSubjects  String[]  // Subject codes the user flagged as weak
+  learningGoals String[]  // Free-form goals
+  preferredExplanationStyle String? // simple | detailed | examples | socratic
+  dailyStudyTargetMin Int? // Minutes per day
+  timezone      String?   // e.g. Africa/Lagos
   onboardingDone Boolean  @default(false)
-  stressPoint   String?
 
+  // Streak & engagement
   currentStreak Int       @default(0)
   longestStreak Int       @default(0)
   lastStudyDate DateTime?
   totalStudyMinutes Int   @default(0)
 
+  // Subscription
   plan          Plan      @default(FREE)
   planExpiresAt DateTime?
 
@@ -59,6 +68,7 @@ model User {
   @@index([clerkId])
   @@index([email])
   @@index([curriculumId])
+  @@index([onboardingDone])
 }
 
 enum Plan {
@@ -255,8 +265,6 @@ model ExamDeadline {
 }
 
 // QUESTION BANK
-// Rich structured metadata is required so the AI Tutor can give
-// personalized, curriculum-aware guidance.
 
 model Question {
   id           String     @id @default(cuid())
@@ -270,19 +278,18 @@ model Question {
   concept      Concept?   @relation(fields: [conceptId], references: [id])
 
   type         QuestionType @default(MULTIPLE_CHOICE)
-  difficulty   Int          @default(3) // 1 (easy) – 5 (very hard)
-  stem         String       // The question text
-  options      Json?        // [{ key: "A", text: "..." }, ...]
-  correctKey   String?      // "A" | "B" | free-text key
+  difficulty   Int          @default(3)
+  stem         String
+  options      Json?
+  correctKey   String?
 
-  // Rich metadata for AI Tutor personalization
-  explanation        String?  // Full worked solution / reasoning
-  commonMistakes     Json?    // [{ mistake: "...", why: "..." }]
-  learningObjectives String[] // What the student should understand after this
-  estimatedTimeSec   Int?     // Expected solving time in seconds
-  source             String?  // e.g. "WAEC 2023 Paper 1 Q12"
-  year               Int?     // Exam year
-  tags               String[] // Free-form tags for search & filtering
+  explanation        String?
+  commonMistakes     Json?
+  learningObjectives String[]
+  estimatedTimeSec   Int?
+  source             String?
+  year               Int?
+  tags               String[]
 
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
@@ -330,7 +337,7 @@ model QuizAttempt {
   userId      String
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   title       String?
-  mode        String   @default("practice") // practice | timed | weak_topics | exam
+  mode        String   @default("practice")
   subjectIds  String[]
   score       Float?
   totalQuestions Int
@@ -351,7 +358,7 @@ model Conversation {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  mode      String   @default("ask") // ask | homework | emergency | coach
+  mode      String   @default("ask")
   title     String?
   subjectId String?
   createdAt DateTime @default(now())
@@ -367,7 +374,7 @@ model Message {
   id             String       @id @default(cuid())
   conversationId String
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  role           String       // user | assistant | system
+  role           String
   content        String
   model          String?
   tokensUsed     Int?
