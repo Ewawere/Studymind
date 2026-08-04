@@ -1,6 +1,10 @@
 // StudyMind Prisma Schema
 // PostgreSQL (Supabase) + Prisma
 // Modular, extensible for Learning Brain, Study Squads, marketplace, multi-curriculum
+//
+// Workflow: always use migrations, never db push after the initial setup.
+//   npx prisma migrate dev --name <description>
+//   npx prisma migrate deploy   (production)
 
 generator client {
   provider = "prisma-client-js"
@@ -251,6 +255,8 @@ model ExamDeadline {
 }
 
 // QUESTION BANK
+// Rich structured metadata is required so the AI Tutor can give
+// personalized, curriculum-aware guidance.
 
 model Question {
   id           String     @id @default(cuid())
@@ -264,22 +270,31 @@ model Question {
   concept      Concept?   @relation(fields: [conceptId], references: [id])
 
   type         QuestionType @default(MULTIPLE_CHOICE)
-  difficulty   Int          @default(3)
-  stem         String
-  options      Json?
-  correctKey   String?
-  explanation  String?
-  source       String?
-  year         Int?
-  isActive     Boolean      @default(true)
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  difficulty   Int          @default(3) // 1 (easy) – 5 (very hard)
+  stem         String       // The question text
+  options      Json?        // [{ key: "A", text: "..." }, ...]
+  correctKey   String?      // "A" | "B" | free-text key
+
+  // Rich metadata for AI Tutor personalization
+  explanation        String?  // Full worked solution / reasoning
+  commonMistakes     Json?    // [{ mistake: "...", why: "..." }]
+  learningObjectives String[] // What the student should understand after this
+  estimatedTimeSec   Int?     // Expected solving time in seconds
+  source             String?  // e.g. "WAEC 2023 Paper 1 Q12"
+  year               Int?     // Exam year
+  tags               String[] // Free-form tags for search & filtering
+
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   attempts QuestionAttempt[]
 
   @@index([curriculumId, subjectId])
   @@index([topicId])
+  @@index([conceptId])
   @@index([difficulty])
+  @@index([year])
 }
 
 enum QuestionType {
@@ -315,7 +330,7 @@ model QuizAttempt {
   userId      String
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   title       String?
-  mode        String   @default("practice")
+  mode        String   @default("practice") // practice | timed | weak_topics | exam
   subjectIds  String[]
   score       Float?
   totalQuestions Int
@@ -336,7 +351,7 @@ model Conversation {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  mode      String   @default("ask")
+  mode      String   @default("ask") // ask | homework | emergency | coach
   title     String?
   subjectId String?
   createdAt DateTime @default(now())
@@ -352,7 +367,7 @@ model Message {
   id             String       @id @default(cuid())
   conversationId String
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  role           String
+  role           String       // user | assistant | system
   content        String
   model          String?
   tokensUsed     Int?
