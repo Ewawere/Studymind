@@ -1,11 +1,12 @@
 /**
- * StudyMind Learning Brain
- *
- * Standalone service — no UI dependencies.
- * Call these functions from quizzes, AI Tutor, planner, and future mobile apps.
+ * StudyMind Learning Brain — public API
  *
  * @example
- * import { updateAfterQuestionAttempt, generateDailyPlan } from "@/lib/learning-brain";
+ * import {
+ *   updateAfterQuestionAttempt,
+ *   generateDailyPlan,
+ *   getAITutorContext,
+ * } from "@/lib/learning-brain";
  */
 
 import { prisma } from "@/lib/prisma";
@@ -13,6 +14,7 @@ import {
   calculateTopicMastery,
   applyDecay,
   rollupSubjectMastery,
+  rollupSubjectConfidence,
 } from "./mastery";
 import {
   deriveQuality,
@@ -27,9 +29,9 @@ import {
 import { generateDailyPlan as buildDailyPlan } from "./planner";
 import {
   calculateExamReadiness as calcReadiness,
-  generateLearningInsights as genInsights,
   type SubjectRollup,
 } from "./analytics";
+import { assembleInsights } from "./insights";
 import type {
   QuestionAttemptInput,
   UserLearningContext,
@@ -39,32 +41,41 @@ import type {
   ExamReadiness,
   LearningInsights,
   SM2State,
+  ConceptEdge,
 } from "./types";
 
-// Re-export pure functions & types for direct use / testing
+// Re-exports
 export * from "./types";
-export { calculateTopicMastery, applyDecay, rollupSubjectMastery } from "./mastery";
+export {
+  calculateTopicMastery,
+  applyDecay,
+  rollupSubjectMastery,
+  rollupSubjectConfidence,
+} from "./mastery";
 export {
   deriveQuality,
   scheduleNextReview,
   initialSM2State,
   isDue,
 } from "./sm2";
+export { estimateRetention, needsProactiveReview } from "./forgetting";
 export { detectWeakTopics, recommendNextTopics } from "./recommendations";
 export { generateDailyPlan as buildPlanFromSnapshots } from "./planner";
+export { calculateExamReadiness as computeReadiness } from "./analytics";
 export {
-  calculateExamReadiness as computeReadiness,
-  generateLearningInsights as computeInsights,
-} from "./analytics";
+  assembleInsights,
+  generateNarratives,
+  buildPerformanceTrends,
+} from "./insights";
+export { getAITutorContext } from "./tutor-context";
 
-// ─────────────────────────────────────────
-// Core: update after a question attempt (transactional)
-// ─────────────────────────────────────────
+// ── Core transactional update ──
 
 export async function updateAfterQuestionAttempt(
   input: QuestionAttemptInput
 ): Promise<{
   conceptMastery?: number;
+  confidence?: number;
   subjectMastery?: number;
   sm2?: SM2State;
 }> {
@@ -82,7 +93,6 @@ export async function updateAfterQuestionAttempt(
   } = input;
 
   return prisma.$transaction(async (tx) => {
-    // 1. Record the attempt
     await tx.questionAttempt.create({
       data: {
         userId,
@@ -95,32 +105,28 @@ export async function updateAfterQuestionAttempt(
     });
 
     let conceptMastery: number | undefined;
+    let confidence: number | undefined;
     let sm2Result: SM2State | undefined;
     let subjectMastery: number | undefined;
 
-    // 2. Update concept-level mastery + SM-2
     if (conceptId) {
       const existing = await tx.conceptState.findUnique({
         where: { userId_conceptId: { userId, conceptId } },
       });
 
-      const prevMastery = existing?.masteryScore ?? 0;
-      const attemptCount = existing
-        ? await tx.questionAttempt.count({
-            where: {
-              userId,
-              question: { conceptId },
-            },
-          })
-        : 0;
+      const attemptCount = await tx.questionAttempt.count({
+        where: { userId, question: { conceptId } },
+      });
 
       const mastery = calculateTopicMastery({
-        previousMastery: prevMastery,
+        previousMastery: existing?.masteryScore ?? 0,
+        previousConfidence: existing?.confidence ?? 50,
         isCorrect,
         difficulty,
         timeSpentMs,
         estimatedTimeSec,
         attemptCount,
+        recentResults: existing?.recentResults ?? "",
       });
 
       const quality = deriveQuality(isCorrect, timeSpentMs, estimatedTimeSec);
@@ -142,6 +148,8 @@ export async function updateAfterQuestionAttempt(
           userId,
           conceptId,
           masteryScore: mastery.masteryScore,
+          confidence: mastery.confidence,
+          recentResults: mastery.recentResults,
           easeFactor: sm2.easeFactor,
           intervalDays: sm2.intervalDays,
           repetitions: sm2.repetitions,
@@ -150,6 +158,8 @@ export async function updateAfterQuestionAttempt(
         },
         update: {
           masteryScore: mastery.masteryScore,
+          confidence: mastery.confidence,
+          recentResults: mastery.recentResults,
           easeFactor: sm2.easeFactor,
           intervalDays: sm2.intervalDays,
           repetitions: sm2.repetitions,
@@ -159,31 +169,24 @@ export async function updateAfterQuestionAttempt(
       });
 
       conceptMastery = mastery.masteryScore;
+      confidence = mastery.confidence;
       sm2Result = sm2;
     }
 
-    // 3. Roll up to subject mastery
     if (subjectId) {
       const conceptStates = await tx.conceptState.findMany({
-        where: {
-          userId,
-          concept: { topic: { subjectId } },
-        },
-        include: {
-          concept: {
-            include: {
-              questions: {
-                select: { id: true },
-              },
-            },
-          },
-        },
+        where: { userId, concept: { topic: { subjectId } } },
       });
 
-      // Simpler rollup from concept states we have
       const rollup = rollupSubjectMastery(
         conceptStates.map((cs) => ({
           masteryScore: cs.masteryScore,
+          attemptCount: cs.repetitions,
+        }))
+      );
+      const confRollup = rollupSubjectConfidence(
+        conceptStates.map((cs) => ({
+          confidence: cs.confidence,
           attemptCount: cs.repetitions,
         }))
       );
@@ -201,12 +204,14 @@ export async function updateAfterQuestionAttempt(
           userId,
           subjectId,
           masteryScore: rollup,
+          confidence: confRollup,
           questionsAttempted: priorAttempts,
           questionsCorrect: priorCorrect,
           lastPracticedAt: new Date(),
         },
         update: {
           masteryScore: rollup,
+          confidence: confRollup,
           questionsAttempted: priorAttempts,
           questionsCorrect: priorCorrect,
           lastPracticedAt: new Date(),
@@ -216,30 +221,21 @@ export async function updateAfterQuestionAttempt(
       subjectMastery = rollup;
     }
 
-    // 4. Learning event + streak update
     await tx.learningEvent.create({
       data: {
         userId,
         type: "question_attempt",
-        payload: {
-          questionId,
-          conceptId,
-          subjectId,
-          isCorrect,
-          difficulty,
-        },
+        payload: { questionId, conceptId, subjectId, isCorrect, difficulty },
       },
     });
 
     await updateStreak(tx, userId);
 
-    return { conceptMastery, subjectMastery, sm2: sm2Result };
+    return { conceptMastery, confidence, subjectMastery, sm2: sm2Result };
   });
 }
 
-// ─────────────────────────────────────────
-// Helpers to load snapshots from DB
-// ─────────────────────────────────────────
+// ── Snapshot loaders ──
 
 async function loadConceptSnapshots(
   userId: string,
@@ -248,33 +244,21 @@ async function loadConceptSnapshots(
   const states = await prisma.conceptState.findMany({
     where: {
       userId,
-      ...(subjectId
-        ? { concept: { topic: { subjectId } } }
-        : {}),
+      ...(subjectId ? { concept: { topic: { subjectId } } } : {}),
     },
     include: {
       concept: {
-        include: {
-          topic: {
-            include: { subject: true },
-          },
-        },
+        include: { topic: { include: { subject: true } } },
       },
     },
   });
 
-  // Also pull attempt stats per concept
   const snapshots: ConceptSnapshot[] = [];
-
   for (const s of states) {
     const attempts = await prisma.questionAttempt.findMany({
-      where: {
-        userId,
-        question: { conceptId: s.conceptId },
-      },
+      where: { userId, question: { conceptId: s.conceptId } },
       select: { isCorrect: true, timeSpentMs: true },
     });
-
     const correctCount = attempts.filter((a) => a.isCorrect).length;
     const times = attempts
       .map((a) => a.timeSpentMs)
@@ -290,6 +274,7 @@ async function loadConceptSnapshots(
       subjectId: s.concept.topic.subjectId,
       subjectName: s.concept.topic.subject.name,
       masteryScore: applyDecay(s.masteryScore, s.lastReviewedAt),
+      confidence: s.confidence,
       attemptCount: attempts.length,
       correctCount,
       averageTimeMs,
@@ -302,8 +287,31 @@ async function loadConceptSnapshots(
       },
     });
   }
-
   return snapshots;
+}
+
+async function loadEdges(conceptIds: string[]): Promise<ConceptEdge[]> {
+  if (conceptIds.length === 0) return [];
+  const rows = await prisma.conceptRelation.findMany({
+    where: {
+      OR: [
+        { fromConceptId: { in: conceptIds } },
+        { toConceptId: { in: conceptIds } },
+      ],
+    },
+    include: {
+      fromConcept: { select: { name: true } },
+      toConcept: { select: { name: true } },
+    },
+  });
+  return rows.map((e) => ({
+    fromConceptId: e.fromConceptId,
+    toConceptId: e.toConceptId,
+    relationType: e.relationType as ConceptEdge["relationType"],
+    strength: e.strength,
+    fromName: e.fromConcept.name,
+    toName: e.toConcept.name,
+  }));
 }
 
 async function loadUserContext(userId: string): Promise<UserLearningContext> {
@@ -315,19 +323,20 @@ async function loadUserContext(userId: string): Promise<UserLearningContext> {
     weakSubjects: user.weakSubjects,
     primaryFocus: user.primaryFocus,
     curriculumId: user.curriculumId,
+    learningGoals: user.learningGoals,
+    preferredExplanationStyle: user.preferredExplanationStyle,
   };
 }
 
-// ─────────────────────────────────────────
-// Public high-level API
-// ─────────────────────────────────────────
+// ── Public API ──
 
 export async function getWeakTopics(
   userId: string,
   subjectId?: string
 ): Promise<WeakTopic[]> {
   const snapshots = await loadConceptSnapshots(userId, subjectId);
-  return detectWeakTopics(snapshots);
+  const edges = await loadEdges(snapshots.map((s) => s.conceptId));
+  return detectWeakTopics(snapshots, edges);
 }
 
 export async function getRecommendations(
@@ -337,12 +346,11 @@ export async function getRecommendations(
     loadConceptSnapshots(userId),
     loadUserContext(userId),
   ]);
-  return recommendNextTopics(snapshots, ctx);
+  const edges = await loadEdges(snapshots.map((s) => s.conceptId));
+  return recommendNextTopics(snapshots, ctx, edges);
 }
 
-export async function generateDailyPlan(
-  userId: string
-): Promise<DailyPlan> {
+export async function generateDailyPlan(userId: string): Promise<DailyPlan> {
   const [snapshots, ctx] = await Promise.all([
     loadConceptSnapshots(userId),
     loadUserContext(userId),
@@ -361,7 +369,34 @@ export async function generateLearningInsights(
   userId: string
 ): Promise<LearningInsights> {
   const input = await buildAnalyticsInput(userId);
-  return genInsights(input);
+  const readiness = calcReadiness(input);
+
+  const attempts = await prisma.questionAttempt.findMany({
+    where: { userId },
+    orderBy: { createdAt: "desc" },
+    take: 500,
+    select: {
+      isCorrect: true,
+      createdAt: true,
+      timeSpentMs: true,
+      question: { select: { subjectId: true } },
+    },
+  });
+
+  return assembleInsights({
+    concepts: input.concepts,
+    subjects: input.subjects,
+    attempts: attempts.map((a) => ({
+      isCorrect: a.isCorrect,
+      createdAt: a.createdAt,
+      timeSpentMs: a.timeSpentMs,
+      subjectId: a.question.subjectId,
+    })),
+    currentStreak: input.currentStreak,
+    longestStreak: input.longestStreak,
+    readiness,
+    ctx: input.ctx,
+  });
 }
 
 async function buildAnalyticsInput(userId: string) {
@@ -405,10 +440,6 @@ async function buildAnalyticsInput(userId: string) {
   };
 }
 
-// ─────────────────────────────────────────
-// Streak helper
-// ─────────────────────────────────────────
-
 async function updateStreak(
   tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
   userId: string
@@ -422,18 +453,16 @@ async function updateStreak(
 
   if (user.lastStudyDate) {
     const last = new Date(user.lastStudyDate);
-    const lastDay = new Date(last.getFullYear(), last.getMonth(), last.getDate());
+    const lastDay = new Date(
+      last.getFullYear(),
+      last.getMonth(),
+      last.getDate()
+    );
     const diffDays = Math.round(
       (today.getTime() - lastDay.getTime()) / (1000 * 60 * 60 * 24)
     );
-
-    if (diffDays === 0) {
-      // already studied today — no change
-    } else if (diffDays === 1) {
-      currentStreak += 1;
-    } else {
-      currentStreak = 1;
-    }
+    if (diffDays === 1) currentStreak += 1;
+    else if (diffDays > 1) currentStreak = 1;
   } else {
     currentStreak = 1;
   }
@@ -442,10 +471,6 @@ async function updateStreak(
 
   await tx.user.update({
     where: { id: userId },
-    data: {
-      currentStreak,
-      longestStreak,
-      lastStudyDate: now,
-    },
+    data: { currentStreak, longestStreak, lastStudyDate: now },
   });
 }
