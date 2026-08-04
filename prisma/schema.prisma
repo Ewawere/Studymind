@@ -1,0 +1,383 @@
+// StudyMind Prisma Schema
+// PostgreSQL (Supabase) + Prisma
+// Modular, extensible for Learning Brain, Study Squads, marketplace, multi-curriculum
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// AUTH & IDENTITY
+
+model User {
+  id            String    @id @default(cuid())
+  clerkId       String    @unique
+  email         String    @unique
+  firstName     String?
+  lastName      String?
+  imageUrl      String?
+  phone         String?
+
+  country       String?
+  curriculumId  String?
+  curriculum    Curriculum? @relation(fields: [curriculumId], references: [id])
+  level         String?
+  primaryFocus  String?
+  onboardingDone Boolean  @default(false)
+  stressPoint   String?
+
+  currentStreak Int       @default(0)
+  longestStreak Int       @default(0)
+  lastStudyDate DateTime?
+  totalStudyMinutes Int   @default(0)
+
+  plan          Plan      @default(FREE)
+  planExpiresAt DateTime?
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  subjectMasteries SubjectMastery[]
+  conceptStates    ConceptState[]
+  studyPlans       StudyPlan[]
+  quizAttempts     QuizAttempt[]
+  questionAttempts QuestionAttempt[]
+  conversations    Conversation[]
+  learningEvents   LearningEvent[]
+  examDeadlines    ExamDeadline[]
+  subscriptions    Subscription[]
+
+  @@index([clerkId])
+  @@index([email])
+  @@index([curriculumId])
+}
+
+enum Plan {
+  FREE
+  PRO
+  EXAM_PASS
+}
+
+// CURRICULUM TAXONOMY
+
+model Curriculum {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  country     String?
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  subjects  Subject[]
+  users     User[]
+  questions Question[]
+
+  @@index([code])
+}
+
+model Subject {
+  id           String     @id @default(cuid())
+  curriculumId String
+  curriculum   Curriculum @relation(fields: [curriculumId], references: [id], onDelete: Cascade)
+  code         String
+  name         String
+  description  String?
+  order        Int        @default(0)
+  isActive     Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  topics           Topic[]
+  questions        Question[]
+  subjectMasteries SubjectMastery[]
+  studyPlanItems   StudyPlanItem[]
+  examDeadlines    ExamDeadline[]
+
+  @@unique([curriculumId, code])
+  @@index([curriculumId])
+}
+
+model Topic {
+  id          String   @id @default(cuid())
+  subjectId   String
+  subject     Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  order       Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  concepts       Concept[]
+  questions      Question[]
+  studyPlanItems StudyPlanItem[]
+
+  @@index([subjectId])
+}
+
+model Concept {
+  id          String   @id @default(cuid())
+  topicId     String
+  topic       Topic    @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  order       Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  conceptStates ConceptState[]
+  questions     Question[]
+
+  @@index([topicId])
+}
+
+// LEARNING BRAIN
+
+model SubjectMastery {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subjectId       String
+  subject         Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  masteryScore    Float    @default(0)
+  confidence      Float    @default(0)
+  questionsAttempted Int   @default(0)
+  questionsCorrect   Int   @default(0)
+  lastPracticedAt DateTime?
+  updatedAt       DateTime @updatedAt
+
+  @@unique([userId, subjectId])
+  @@index([userId])
+  @@index([subjectId])
+}
+
+model ConceptState {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conceptId       String
+  concept         Concept  @relation(fields: [conceptId], references: [id], onDelete: Cascade)
+
+  masteryScore    Float    @default(0)
+  easeFactor      Float    @default(2.5)
+  intervalDays    Int      @default(0)
+  repetitions     Int      @default(0)
+  nextReviewAt    DateTime?
+  lastReviewedAt  DateTime?
+  updatedAt       DateTime @updatedAt
+
+  @@unique([userId, conceptId])
+  @@index([userId])
+  @@index([conceptId])
+  @@index([nextReviewAt])
+}
+
+model LearningEvent {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  payload   Json?
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([type])
+}
+
+// STUDY PLANNING
+
+model StudyPlan {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String?
+  startDate   DateTime
+  endDate     DateTime?
+  isActive    Boolean  @default(true)
+  generatedBy String   @default("system")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  items StudyPlanItem[]
+
+  @@index([userId, isActive])
+}
+
+model StudyPlanItem {
+  id          String    @id @default(cuid())
+  planId      String
+  plan        StudyPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  subjectId   String?
+  subject     Subject?  @relation(fields: [subjectId], references: [id])
+  topicId     String?
+  topic       Topic?    @relation(fields: [topicId], references: [id])
+
+  title       String
+  description String?
+  type        String
+  durationMin Int       @default(20)
+  scheduledFor DateTime
+  completedAt DateTime?
+  order       Int       @default(0)
+  createdAt   DateTime  @default(now())
+
+  @@index([planId])
+  @@index([scheduledFor])
+}
+
+model ExamDeadline {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subjectId   String?
+  subject     Subject? @relation(fields: [subjectId], references: [id])
+  title       String
+  examDate    DateTime
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([examDate])
+}
+
+// QUESTION BANK
+
+model Question {
+  id           String     @id @default(cuid())
+  curriculumId String
+  curriculum   Curriculum @relation(fields: [curriculumId], references: [id])
+  subjectId    String
+  subject      Subject    @relation(fields: [subjectId], references: [id])
+  topicId      String?
+  topic        Topic?     @relation(fields: [topicId], references: [id])
+  conceptId    String?
+  concept      Concept?   @relation(fields: [conceptId], references: [id])
+
+  type         QuestionType @default(MULTIPLE_CHOICE)
+  difficulty   Int          @default(3)
+  stem         String
+  options      Json?
+  correctKey   String?
+  explanation  String?
+  source       String?
+  year         Int?
+  isActive     Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  attempts QuestionAttempt[]
+
+  @@index([curriculumId, subjectId])
+  @@index([topicId])
+  @@index([difficulty])
+}
+
+enum QuestionType {
+  MULTIPLE_CHOICE
+  SHORT_ANSWER
+  ESSAY
+  TRUE_FALSE
+}
+
+model QuestionAttempt {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  questionId  String
+  question    Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  quizAttemptId String?
+  quizAttempt QuizAttempt? @relation(fields: [quizAttemptId], references: [id])
+
+  selectedKey String?
+  isCorrect   Boolean
+  timeSpentMs Int?
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([questionId])
+  @@index([quizAttemptId])
+}
+
+// QUIZZES
+
+model QuizAttempt {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String?
+  mode        String   @default("practice")
+  subjectIds  String[]
+  score       Float?
+  totalQuestions Int
+  correctCount Int     @default(0)
+  startedAt   DateTime @default(now())
+  completedAt DateTime?
+  timeLimitSec Int?
+
+  attempts QuestionAttempt[]
+
+  @@index([userId])
+  @@index([completedAt])
+}
+
+// AI CONVERSATIONS
+
+model Conversation {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mode      String   @default("ask")
+  title     String?
+  subjectId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  messages Message[]
+
+  @@index([userId])
+  @@index([mode])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           String
+  content        String
+  model          String?
+  tokensUsed     Int?
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId])
+}
+
+// SUBSCRIPTIONS
+
+model Subscription {
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan              Plan
+  provider          String   @default("paystack")
+  providerRef       String?
+  status            String
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  cancelAtPeriodEnd  Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([providerRef])
+}
