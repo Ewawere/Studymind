@@ -34,7 +34,8 @@ src/
 
 prisma/
 ├── schema.prisma                # Full data model
-└── seed.ts                      # Curriculum seed data
+├── seed.ts                      # Curriculum seed data
+└── migrations/                  # Versioned schema history
 ```
 
 ## Getting started
@@ -68,18 +69,32 @@ Fill in:
 - Copy the **Connection string** (Transaction / pooling) → `DATABASE_URL`
 - Copy the **Direct connection** string → `DIRECT_URL`
 
-### 3. Database setup
+### 3. Database setup (migrations, not db push)
+
+We use **Prisma Migrate** for version history and safer deployments.
 
 ```bash
 # Generate Prisma client
 npx prisma generate
 
-# Push schema to Supabase (or use migrate for production)
-npx prisma db push
+# Create the initial migration (first time only)
+npx prisma migrate dev --name init
 
 # Seed WAEC + JAMB subjects & topics
 npx tsx prisma/seed.ts
 ```
+
+**Later schema changes:**
+```bash
+npx prisma migrate dev --name <short_description>
+```
+
+**Production:**
+```bash
+npx prisma migrate deploy
+```
+
+> Avoid `prisma db push` once the schema starts evolving. Migrations give you history and make deploys safer.
 
 ### 4. Run
 
@@ -99,13 +114,28 @@ Open [http://localhost:3000](http://localhost:3000).
 - **Conversation / Message** — AI tutor sessions
 - **Subscription** — Paystack-ready billing
 
+### Question metadata (required for AI Tutor quality)
+
+Every question should carry structured metadata so the tutor can personalize:
+
+| Field | Purpose |
+|-------|--------|
+| `curriculumId` / `subjectId` / `topicId` / `conceptId` | Taxonomy placement |
+| `difficulty` (1–5) | Adaptive difficulty |
+| `year` + `source` | Exam authenticity |
+| `explanation` | Worked solution |
+| `commonMistakes` | Targeted feedback |
+| `learningObjectives` | What the student should learn |
+| `estimatedTimeSec` | Pacing & exam mode |
+| `tags` | Search & filtering |
+
 ## Roadmap status
 
 - [x] Landing page + app shell
 - [x] Clerk authentication
-- [x] Prisma schema + seed
+- [x] Prisma schema + seed (migration-first)
 - [ ] Learning Brain service
-- [ ] Question bank import
+- [ ] Question bank import (with full metadata)
 - [ ] AI Tutor (streaming)
 - [ ] Planner + AI Coach
 - [ ] Emergency Exam Mode
