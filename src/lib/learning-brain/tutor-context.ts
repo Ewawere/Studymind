@@ -2,7 +2,6 @@
  * getAITutorContext(userId)
  *
  * One call returns everything the AI Tutor needs.
- * No extra DB round-trips from the tutor layer.
  */
 
 import { prisma } from "@/lib/prisma";
@@ -21,7 +20,6 @@ import type {
   UserLearningContext,
   DailyPlan,
 } from "./types";
-import { initialSM2State } from "./sm2";
 
 export async function getAITutorContext(
   userId: string
@@ -39,8 +37,7 @@ export async function getAITutorContext(
     preferredExplanationStyle: user.preferredExplanationStyle,
   };
 
-  // Concept states + graph edges + recent attempts in parallel
-  const [states, relations, attempts, subjectMasteries] = await Promise.all([
+  const [states, attempts, subjectMasteries] = await Promise.all([
     prisma.conceptState.findMany({
       where: { userId },
       include: {
@@ -48,18 +45,6 @@ export async function getAITutorContext(
           include: { topic: { include: { subject: true } } },
         },
       },
-    }),
-    prisma.conceptRelation.findMany({
-      where: {
-        OR: [
-          {
-            fromConceptId: {
-              in: undefined as unknown as string[], // filled below after states
-            },
-          },
-        ],
-      },
-      take: 0, // placeholder — we load properly after
     }),
     prisma.questionAttempt.findMany({
       where: { userId },
@@ -108,7 +93,6 @@ export async function getAITutorContext(
     toName: e.toConcept.name,
   }));
 
-  // Build snapshots
   const snapshots: ConceptSnapshot[] = [];
   for (const s of states) {
     const conceptAttempts = attempts.filter(
