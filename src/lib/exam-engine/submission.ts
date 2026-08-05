@@ -1,13 +1,14 @@
 /**
  * Answer drafts + final submission marking pipeline.
+ * Answered questions go through Learning Brain (creates attempt).
+ * Skipped questions get a skipped attempt only.
  */
 
 import { prisma } from "@/lib/prisma";
 import { markObjectiveAnswer } from "@/lib/assessment";
 import { updateAfterQuestionAttempt } from "@/lib/learning-brain";
 import { updateQuestionStatistics } from "@/lib/question-bank";
-import type { AnswerDraft } from "@/lib/assessment";
-import type { MarkedAnswer } from "@/lib/assessment";
+import type { AnswerDraft, MarkedAnswer } from "@/lib/assessment";
 
 export function upsertAnswerDraft(
   answers: Record<string, AnswerDraft>,
@@ -36,10 +37,6 @@ export function upsertAnswerDraft(
   };
 }
 
-/**
- * On final submit: mark every question, write QuestionAttempts,
- * update Learning Brain + Question stats.
- */
 export async function finalizeExamAnswers(opts: {
   userId: string;
   examId: string;
@@ -55,40 +52,44 @@ export async function finalizeExamAnswers(opts: {
     const result = await markObjectiveAnswer(qid, selectedKey, timeSpentMs);
     marked.push(result);
 
-    // Persist attempt
-    await prisma.questionAttempt.create({
-      data: {
-        userId: opts.userId,
-        questionId: qid,
-        quizAttemptId: opts.examId,
-        selectedKey,
-        isCorrect: result.isCorrect,
-        timeSpentMs: timeSpentMs ?? undefined,
-        skipped: selectedKey == null,
-      },
+    if (selectedKey == null) {
+      await prisma.questionAttempt.create({
+        data: {
+          userId: opts.userId,
+          questionId: qid,
+          quizAttemptId: opts.examId,
+          selectedKey: null,
+          isCorrect: false,
+          timeSpentMs: timeSpentMs ?? undefined,
+          skipped: true,
+        },
+      });
+      await updateQuestionStatistics(qid, {
+        isCorrect: false,
+        timeSpentMs,
+        skipped: true,
+      });
+      continue;
+    }
+
+    // Learning Brain records the attempt + mastery/SM-2
+    await updateAfterQuestionAttempt({
+      userId: opts.userId,
+      questionId: qid,
+      conceptId: result.conceptId,
+      subjectId: result.subjectId,
+      isCorrect: result.isCorrect,
+      difficulty: result.difficulty,
+      timeSpentMs,
+      estimatedTimeSec: result.estimatedTimeSec,
+      selectedKey,
+      quizAttemptId: opts.examId,
     });
 
     await updateQuestionStatistics(qid, {
       isCorrect: result.isCorrect,
       timeSpentMs,
-      skipped: selectedKey == null,
     });
-
-    // Learning Brain only for answered items
-    if (selectedKey != null) {
-      await updateAfterQuestionAttempt({
-        userId: opts.userId,
-        questionId: qid,
-        conceptId: result.conceptId,
-        subjectId: result.subjectId,
-        isCorrect: result.isCorrect,
-        difficulty: result.difficulty,
-        timeSpentMs,
-        estimatedTimeSec: result.estimatedTimeSec,
-        selectedKey,
-        quizAttemptId: opts.examId,
-      });
-    }
   }
 
   return marked;
