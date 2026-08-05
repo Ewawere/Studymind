@@ -25,7 +25,7 @@ model User {
   country       String?
   curriculumId  String?
   curriculum    Curriculum? @relation(fields: [curriculumId], references: [id])
-  level         String? // academic: SS1, SS2, SS3…
+  level         String?
   primaryFocus  String?
   stressPoint   String?
   targetExamDate DateTime?
@@ -43,6 +43,7 @@ model User {
 
   xp            Int       @default(0)
   playerLevel   Int       @default(1)
+  title         String?
 
   plan          Plan      @default(FREE)
   planExpiresAt DateTime?
@@ -60,17 +61,65 @@ model User {
   examDeadlines    ExamDeadline[]
   subscriptions    Subscription[]
   questionImports  QuestionImport[]
+  achievements     UserAchievement[]
+  badges           UserBadge[]
+  challenges       UserChallenge[]
 
   @@index([clerkId])
   @@index([email])
   @@index([curriculumId])
   @@index([onboardingDone])
+  @@index([xp])
 }
 
 enum Plan {
   FREE
   PRO
   EXAM_PASS
+}
+
+model UserAchievement {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  code       String
+  unlockedAt DateTime @default(now())
+  meta       Json?
+
+  @@unique([userId, code])
+  @@index([userId])
+  @@index([code])
+}
+
+model UserBadge {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  code       String
+  tier       String?
+  unlockedAt DateTime @default(now())
+
+  @@unique([userId, code])
+  @@index([userId])
+}
+
+model UserChallenge {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  code        String
+  period      String
+  periodKey   String
+  progress    Int       @default(0)
+  target      Int
+  completedAt DateTime?
+  claimedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([userId, code, periodKey])
+  @@index([userId, periodKey])
+  @@index([completedAt])
 }
 
 model Curriculum {
