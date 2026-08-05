@@ -60,6 +60,7 @@ export function buildFeedback(
     xpGained: number;
     masteryDelta?: number;
     confidence?: number;
+    progress: AnswerFeedback["progress"];
   }
 ): AnswerFeedback {
   return {
@@ -72,5 +73,6 @@ export function buildFeedback(
     masteryDelta: extras.masteryDelta,
     confidence: extras.confidence,
     conceptId: marked.conceptId,
+    progress: extras.progress,
   };
 }
