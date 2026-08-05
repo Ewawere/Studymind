@@ -43,6 +43,10 @@ model User {
   lastStudyDate DateTime?
   totalStudyMinutes Int   @default(0)
 
+  // Gamification
+  xp            Int       @default(0)
+  level         Int       @default(1)
+
   plan          Plan      @default(FREE)
   planExpiresAt DateTime?
 
@@ -280,7 +284,6 @@ model ExamDeadline {
 }
 
 // ── QUESTION BANK ──
-// Permanent Question.id never changes. Edits create QuestionRevision rows.
 
 enum QuestionType {
   MULTIPLE_CHOICE
@@ -299,14 +302,14 @@ enum QuestionStatus {
 }
 
 model Question {
-  id           String         @id @default(cuid()) // permanent UUID — never changes
+  id           String         @id @default(cuid())
   curriculumId String
   curriculum   Curriculum     @relation(fields: [curriculumId], references: [id])
   subjectId    String
   subject      Subject        @relation(fields: [subjectId], references: [id])
   topicId      String?
   topic        Topic?         @relation(fields: [topicId], references: [id])
-  conceptId    String? // primary concept (optional convenience FK)
+  conceptId    String?
   concept      Concept?       @relation(fields: [conceptId], references: [id])
 
   type         QuestionType   @default(MULTIPLE_CHOICE)
@@ -314,20 +317,19 @@ model Question {
   language     String         @default("en")
 
   stem         String
-  stemHash     String? // normalized hash for exact-duplicate detection
+  stemHash     String?
   correctKey   String?
 
-  // Difficulty: author (imported) vs calculated (performance-based)
-  authorDifficulty     Int   @default(3) // 1–5 never overwritten
-  calculatedDifficulty Float? // live estimate, nullable until enough data
+  authorDifficulty     Int   @default(3)
+  calculatedDifficulty Float?
 
   explanation          String?
-  commonMistakes       Json? // [{ mistake, why }]
+  commonMistakes       Json?
   learningObjectives   String[]
   estimatedTimeSec     Int?
   source               String?
   year                 Int?
-  bloomLevel           String? // remember | understand | apply | analyze | evaluate | create
+  bloomLevel           String?
   keywords             String[]
 
   revisionNumber Int      @default(1)
@@ -359,7 +361,7 @@ model QuestionOption {
   id         String   @id @default(cuid())
   questionId String
   question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  key        String // A, B, C, D
+  key        String
   text       String
   order      Int      @default(0)
   isCorrect  Boolean  @default(false)
@@ -372,7 +374,7 @@ model QuestionMedia {
   id         String   @id @default(cuid())
   questionId String
   question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  type       String // image | diagram | equation | audio | video | table
+  type       String
   url        String
   altText    String?
   order      Int      @default(0)
@@ -403,7 +405,7 @@ model QuestionTag {
 model QuestionConcept {
   questionId String
   conceptId  String
-  role       String @default("primary") // primary | related | prerequisite
+  role       String @default("primary")
   question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
   concept    Concept  @relation(fields: [conceptId], references: [id], onDelete: Cascade)
 
@@ -412,46 +414,46 @@ model QuestionConcept {
 }
 
 model QuestionRevision {
-  id           String   @id @default(cuid())
-  questionId   String
-  question     Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  id             String   @id @default(cuid())
+  questionId     String
+  question       Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
   revisionNumber Int
-  snapshot     Json // full question payload at this revision
-  changedBy    String?
-  changeNote   String?
-  createdAt    DateTime @default(now())
+  snapshot       Json
+  changedBy      String?
+  changeNote     String?
+  createdAt      DateTime @default(now())
 
   @@unique([questionId, revisionNumber])
   @@index([questionId])
 }
 
 model QuestionStatistics {
-  questionId          String   @id
-  question            Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  totalAttempts       Int      @default(0)
-  correctCount        Int      @default(0)
-  incorrectCount      Int      @default(0)
-  skipCount           Int      @default(0)
-  averageTimeMs       Float?
-  bookmarkCount       Int      @default(0)
-  aiExplanationRequests Int    @default(0)
-  popularityScore     Float    @default(0)
-  updatedAt           DateTime @updatedAt
+  questionId            String   @id
+  question              Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  totalAttempts         Int      @default(0)
+  correctCount          Int      @default(0)
+  incorrectCount        Int      @default(0)
+  skipCount             Int      @default(0)
+  averageTimeMs         Float?
+  bookmarkCount         Int      @default(0)
+  aiExplanationRequests Int      @default(0)
+  popularityScore       Float    @default(0)
+  updatedAt             DateTime @updatedAt
 }
 
 model QuestionImport {
-  id            String   @id @default(cuid())
-  importedById  String?
-  importedBy    User?    @relation(fields: [importedById], references: [id])
-  sourceFormat  String // csv | json
-  fileName      String?
-  status        String   @default("completed") // pending | completed | failed
-  importedCount Int      @default(0)
-  skippedCount  Int      @default(0)
-  duplicateCount Int     @default(0)
-  errorCount    Int      @default(0)
-  report        Json?
-  createdAt     DateTime @default(now())
+  id             String   @id @default(cuid())
+  importedById   String?
+  importedBy     User?    @relation(fields: [importedById], references: [id])
+  sourceFormat   String
+  fileName       String?
+  status         String   @default("completed")
+  importedCount  Int      @default(0)
+  skippedCount   Int      @default(0)
+  duplicateCount Int      @default(0)
+  errorCount     Int      @default(0)
+  report         Json?
+  createdAt      DateTime @default(now())
 
   questions Question[]
 
@@ -463,13 +465,14 @@ model QuestionAttempt {
   id            String       @id @default(cuid())
   userId        String
   user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  questionId    String // permanent ID — history preserved forever
+  questionId    String
   question      Question     @relation(fields: [questionId], references: [id], onDelete: Cascade)
   quizAttemptId String?
   quizAttempt   QuizAttempt? @relation(fields: [quizAttemptId], references: [id])
   selectedKey   String?
   isCorrect     Boolean
   timeSpentMs   Int?
+  skipped       Boolean      @default(false)
   createdAt     DateTime     @default(now())
 
   @@index([userId])
@@ -477,25 +480,38 @@ model QuestionAttempt {
   @@index([quizAttemptId])
 }
 
-// ── QUIZZES ──
+// ── PRACTICE / QUIZ SESSIONS ──
+// QuizAttempt is the durable Practice Session record.
 
 model QuizAttempt {
   id             String    @id @default(cuid())
   userId         String
   user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   title          String?
-  mode           String    @default("practice")
+  mode           String    @default("practice") // practice | exam | weakness | revision | challenge | tutor
+  status         String    @default("active") // active | completed | abandoned
   subjectIds     String[]
+  topicIds       String[]  @default([])
+  conceptIds     String[]  @default([])
+  questionQueue  String[]  @default([]) // ordered question IDs
+  currentIndex   Int       @default(0)
   score          Float?
-  totalQuestions Int
+  totalQuestions Int       @default(0)
   correctCount   Int       @default(0)
+  skippedCount   Int       @default(0)
+  xpEarned       Int       @default(0)
+  timeLimitSec   Int?
+  config         Json? // mode-specific options
+  report         Json? // final session report
   startedAt      DateTime  @default(now())
   completedAt    DateTime?
-  timeLimitSec   Int?
+  updatedAt      DateTime  @updatedAt
   attempts       QuestionAttempt[]
 
   @@index([userId])
+  @@index([status])
   @@index([completedAt])
+  @@index([mode])
 }
 
 // ── AI CONVERSATIONS ──
