@@ -1,0 +1,112 @@
+{
+  "release": "1.0.0",
+  "curriculum": "WAEC",
+  "subject": "English Language",
+  "topic": "Concord",
+  "questions": [
+    {
+      "curriculum": "WAEC",
+      "subject": "English Language",
+      "topic": "Concord",
+      "concepts": ["Subject-Verb Agreement"],
+      "learningObjective": "Choose the verb form that agrees with a singular subject",
+      "difficulty": "easy",
+      "authorDifficulty": 2,
+      "bloomLevel": "apply",
+      "estimatedTimeSec": 45,
+      "stem": "The boy ____ to school every day.",
+      "options": [
+        { "key": "A", "text": "go" },
+        { "key": "B", "text": "goes" },
+        { "key": "C", "text": "going" },
+        { "key": "D", "text": "gone" }
+      ],
+      "correctAnswer": "B",
+      "stepByStepExplanation": "The subject ‘The boy’ is singular. In the simple present, singular third-person subjects take the -s form of the verb: goes.",
+      "commonMisconception": "Using the base form ‘go’ because it sounds natural in casual speech, especially in some Nigerian English varieties.",
+      "prerequisites": ["Parts of Speech"],
+      "relatedQuestions": [],
+      "tags": ["concord", "subject-verb"],
+      "aiTutorContext": "Emphasize singular subject → verb + s in present simple. Contrast with plural: The boys go.",
+      "pastExam": { "year": null, "paper": "", "number": null }
+    },
+    {
+      "curriculum": "WAEC",
+      "subject": "English Language",
+      "topic": "Concord",
+      "concepts": ["Subject-Verb Agreement", "Collective Nouns"],
+      "learningObjective": "Apply concord rules with collective nouns used as a unit",
+      "difficulty": "medium",
+      "authorDifficulty": 3,
+      "bloomLevel": "apply",
+      "estimatedTimeSec": 60,
+      "stem": "The committee ____ decided on a new date.",
+      "options": [
+        { "key": "A", "text": "have" },
+        { "key": "B", "text": "has" },
+        { "key": "C", "text": "were" },
+        { "key": "D", "text": "are" }
+      ],
+      "correctAnswer": "B",
+      "stepByStepExplanation": "When a collective noun (committee) acts as a single unit making one decision, it takes a singular verb: has decided.",
+      "commonMisconception": "Always treating collective nouns as plural (have) regardless of whether the group acts as one unit or as individuals.",
+      "prerequisites": ["Subject-Verb Agreement"],
+      "relatedQuestions": [],
+      "tags": ["concord", "collective-nouns"],
+      "aiTutorContext": "Explain unit vs individuals: The committee has decided (one decision) vs The committee have disagreed among themselves (individuals).",
+      "pastExam": { "year": null, "paper": "", "number": null }
+    },
+    {
+      "curriculum": "WAEC",
+      "subject": "English Language",
+      "topic": "Concord",
+      "concepts": ["Neither-Nor Agreement"],
+      "learningObjective": "Apply proximity/nearest-subject rule with neither…nor",
+      "difficulty": "hard",
+      "authorDifficulty": 4,
+      "bloomLevel": "apply",
+      "estimatedTimeSec": 75,
+      "stem": "Neither the teacher nor the students ____ present.",
+      "options": [
+        { "key": "A", "text": "was" },
+        { "key": "B", "text": "is" },
+        { "key": "C", "text": "were" },
+        { "key": "D", "text": "has" }
+      ],
+      "correctAnswer": "C",
+      "stepByStepExplanation": "With neither…nor, the verb often agrees with the nearer subject. Here ‘students’ is plural and nearer the verb, so were is correct.",
+      "commonMisconception": "Always using a singular verb after neither, ignoring the nearer-subject rule.",
+      "prerequisites": ["Subject-Verb Agreement"],
+      "relatedQuestions": [],
+      "tags": ["concord", "neither-nor"],
+      "aiTutorContext": "Teach the proximity rule with clear examples: Neither the students nor the teacher was present (teacher nearer → singular).",
+      "pastExam": { "year": null, "paper": "", "number": null }
+    },
+    {
+      "curriculum": "WAEC",
+      "subject": "English Language",
+      "topic": "Concord",
+      "concepts": ["Indefinite Pronouns"],
+      "learningObjective": "Use singular verbs with indefinite pronouns like everyone",
+      "difficulty": "medium",
+      "authorDifficulty": 3,
+      "bloomLevel": "apply",
+      "estimatedTimeSec": 50,
+      "stem": "Everyone ____ expected to submit the form today.",
+      "options": [
+        { "key": "A", "text": "are" },
+        { "key": "B", "text": "is" },
+        { "key": "C", "text": "were" },
+        { "key": "D", "text": "have" }
+      ],
+      "correctAnswer": "B",
+      "stepByStepExplanation": "Indefinite pronouns such as everyone, somebody, each are grammatically singular and take singular verbs: is expected.",
+      "commonMisconception": "Matching the verb to the idea of many people (are) instead of the grammatical singularity of everyone.",
+      "prerequisites": ["Subject-Verb Agreement"],
+      "relatedQuestions": [],
+      "tags": ["concord", "indefinite-pronouns"],
+      "aiTutorContext": "List common singular indefinites: everyone, somebody, nobody, each, either. Drill short sentences.",
+      "pastExam": { "year": null, "paper": "", "number": null }
+    }
+  ]
+}
