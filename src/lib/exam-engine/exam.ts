@@ -34,10 +34,9 @@ import type {
   ExamMode,
   ExamStatus,
   IntegrityEvent,
-  DEFAULT_RULES,
   PaletteItem,
 } from "./types";
-import { DEFAULT_RULES as RULES } from "./types";
+import { DEFAULT_RULES } from "./types";
 
 interface ExamConfigPayload {
   rules: ExamRules;
@@ -50,7 +49,7 @@ interface ExamConfigPayload {
 function readConfig(raw: unknown): ExamConfigPayload {
   const c = (raw ?? {}) as Partial<ExamConfigPayload>;
   return {
-    rules: { ...RULES, ...(c.rules ?? {}) },
+    rules: { ...DEFAULT_RULES, ...(c.rules ?? {}) },
     answers: c.answers ?? {},
     endsAt: c.endsAt ?? null,
     integrityEvents: c.integrityEvents ?? [],
@@ -97,7 +96,7 @@ export async function createExam(
   userId: string,
   config: ExamConfig
 ): Promise<ExamState> {
-  const rules: ExamRules = { ...RULES, ...config.rules };
+  const rules: ExamRules = { ...DEFAULT_RULES, ...config.rules };
   const questionIds = await selectExamQuestions({
     ...config,
     rules,
@@ -143,7 +142,6 @@ export async function startExam(examId: string): Promise<ExamState> {
   cfg.endsAt = endsAt.toISOString();
   cfg.integrityEvents = appendIntegrityEvent(cfg.integrityEvents, "resume");
 
-  // Mark first question visited
   if (row.questionQueue[0]) {
     cfg.answers = markVisited(cfg.answers, row.questionQueue[0]);
   }
@@ -168,7 +166,8 @@ export async function resumeExam(examId: string): Promise<ExamState> {
   const endsAt = cfg.endsAt ? new Date(cfg.endsAt) : null;
 
   if (endsAt && isExpired(endsAt) && cfg.rules.autoSubmitOnTimeout) {
-    return submitExam(examId);
+    const result = await submitExam(examId);
+    return result;
   }
 
   if (row.status === "submitted" || row.status === "expired") {
@@ -196,10 +195,9 @@ export async function getExamQuestion(
   const state = toState(row);
   assertExamActive(state.status);
 
-  // Timeout auto-submit
   if (state.endsAt && isExpired(new Date(state.endsAt)) && state.rules.autoSubmitOnTimeout) {
-    const submitted = await submitExam(examId);
-    throw new Error(`Exam auto-submitted. Status: ${submitted.status}`);
+    await submitExam(examId);
+    throw new Error("Exam auto-submitted due to timeout");
   }
 
   const idx = index ?? state.currentIndex;
