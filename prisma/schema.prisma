@@ -13,8 +13,6 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-// ── AUTH ──
-
 model User {
   id            String    @id @default(cuid())
   clerkId       String    @unique
@@ -27,7 +25,7 @@ model User {
   country       String?
   curriculumId  String?
   curriculum    Curriculum? @relation(fields: [curriculumId], references: [id])
-  level         String?
+  level         String? // academic: SS1, SS2, SS3…
   primaryFocus  String?
   stressPoint   String?
   targetExamDate DateTime?
@@ -43,9 +41,8 @@ model User {
   lastStudyDate DateTime?
   totalStudyMinutes Int   @default(0)
 
-  // Gamification
   xp            Int       @default(0)
-  level         Int       @default(1)
+  playerLevel   Int       @default(1)
 
   plan          Plan      @default(FREE)
   planExpiresAt DateTime?
@@ -75,8 +72,6 @@ enum Plan {
   PRO
   EXAM_PASS
 }
-
-// ── CURRICULUM TAXONOMY ──
 
 model Curriculum {
   id          String   @id @default(cuid())
@@ -174,8 +169,6 @@ model ConceptRelation {
   @@index([relationType])
 }
 
-// ── LEARNING BRAIN ──
-
 model SubjectMastery {
   id                 String   @id @default(cuid())
   userId             String
@@ -227,8 +220,6 @@ model LearningEvent {
   @@index([userId, createdAt])
   @@index([type])
 }
-
-// ── STUDY PLANNING ──
 
 model StudyPlan {
   id          String    @id @default(cuid())
@@ -282,8 +273,6 @@ model ExamDeadline {
   @@index([userId])
   @@index([examDate])
 }
-
-// ── QUESTION BANK ──
 
 enum QuestionType {
   MULTIPLE_CHOICE
@@ -480,20 +469,17 @@ model QuestionAttempt {
   @@index([quizAttemptId])
 }
 
-// ── PRACTICE / QUIZ SESSIONS ──
-// QuizAttempt is the durable Practice Session record.
-
 model QuizAttempt {
   id             String    @id @default(cuid())
   userId         String
   user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   title          String?
-  mode           String    @default("practice") // practice | exam | weakness | revision | challenge | tutor
-  status         String    @default("active") // active | completed | abandoned
+  mode           String    @default("practice")
+  status         String    @default("active")
   subjectIds     String[]
   topicIds       String[]  @default([])
   conceptIds     String[]  @default([])
-  questionQueue  String[]  @default([]) // ordered question IDs
+  questionQueue  String[]  @default([])
   currentIndex   Int       @default(0)
   score          Float?
   totalQuestions Int       @default(0)
@@ -501,8 +487,8 @@ model QuizAttempt {
   skippedCount   Int       @default(0)
   xpEarned       Int       @default(0)
   timeLimitSec   Int?
-  config         Json? // mode-specific options
-  report         Json? // final session report
+  config         Json?
+  report         Json?
   startedAt      DateTime  @default(now())
   completedAt    DateTime?
   updatedAt      DateTime  @updatedAt
@@ -513,8 +499,6 @@ model QuizAttempt {
   @@index([completedAt])
   @@index([mode])
 }
-
-// ── AI CONVERSATIONS ──
 
 model Conversation {
   id        String    @id @default(cuid())
@@ -543,8 +527,6 @@ model Message {
 
   @@index([conversationId])
 }
-
-// ── SUBSCRIPTIONS ──
 
 model Subscription {
   id                 String    @id @default(cuid())
