@@ -77,6 +77,12 @@ export interface AnswerFeedback {
   masteryDelta?: number;
   confidence?: number;
   conceptId?: string | null;
+  progress: {
+    answered: number;
+    correct: number;
+    skipped: number;
+    remaining: number;
+  };
 }
 
 export interface SessionReport {
@@ -90,8 +96,18 @@ export interface SessionReport {
   timeSpentMs: number;
   averageResponseMs: number | null;
   xpEarned: number;
-  strongestConcepts: { conceptId: string; name?: string; correct: number; total: number }[];
-  weakestConcepts: { conceptId: string; name?: string; correct: number; total: number }[];
+  strongestConcepts: {
+    conceptId: string;
+    name?: string;
+    correct: number;
+    total: number;
+  }[];
+  weakestConcepts: {
+    conceptId: string;
+    name?: string;
+    correct: number;
+    total: number;
+  }[];
   recommendedNextTopics: string[];
   improvementNote?: string;
 }
@@ -121,6 +137,13 @@ export interface ScoredQuestion {
   conceptId: string | null;
   subjectId: string;
   authorDifficulty: number;
-  score: number; // higher = more likely to be selected
+  score: number;
   reasons: string[];
+}
+
+/** Live adaptive state stored in QuizAttempt.config */
+export interface AdaptiveConfig {
+  targetDifficulty: number | null;
+  recentResults: boolean[];
+  consecutiveWrong: number;
 }
