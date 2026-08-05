@@ -13,6 +13,9 @@
     "db:migrate:deploy": "prisma migrate deploy",
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
+    "content:import": "tsx scripts/content-import.ts",
+    "content:qa": "tsx scripts/content-qa.ts",
+    "content:publish": "tsx scripts/content-publish.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {
