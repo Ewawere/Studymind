@@ -12,6 +12,10 @@ import { selectQuestionQueue } from "./selector";
 import { markAnswer, buildFeedback } from "./scoring";
 import { xpForAnswer, xpForSessionBonus, awardXp } from "./streaks";
 import { buildSessionReport } from "./analytics";
+import {
+  nextTargetDifficulty,
+  shouldInjectEasierQuestion,
+} from "./adaptive";
 import type {
   CreateSessionOptions,
   SessionSnapshot,
@@ -20,6 +24,7 @@ import type {
   AnswerFeedback,
   SessionReport,
   SessionMode,
+  AdaptiveConfig,
 } from "./types";
 
 function toSnapshot(row: {
@@ -64,6 +69,15 @@ function toSnapshot(row: {
   };
 }
 
+function readAdaptive(config: unknown): AdaptiveConfig {
+  const c = (config ?? {}) as Partial<AdaptiveConfig>;
+  return {
+    targetDifficulty: c.targetDifficulty ?? null,
+    recentResults: Array.isArray(c.recentResults) ? c.recentResults : [],
+    consecutiveWrong: c.consecutiveWrong ?? 0,
+  };
+}
+
 export async function createPracticeSession(
   options: CreateSessionOptions
 ): Promise<SessionSnapshot> {
@@ -87,8 +101,10 @@ export async function createPracticeSession(
       totalQuestions: queue.length,
       timeLimitSec: options.timeLimitSec ?? null,
       config: {
-        targetDifficulty: options.targetDifficulty ?? null,
-      },
+        targetDifficulty: options.targetDifficulty ?? (mode === "challenge" ? 4 : 3),
+        recentResults: [],
+        consecutiveWrong: 0,
+      } satisfies AdaptiveConfig,
     },
   });
 
@@ -102,7 +118,7 @@ export async function resumeSession(
     where: { id: sessionId },
   });
   if (session.status !== "active") {
-    throw new Error(`Session is ${session.status}, cannot resume");
+    throw new Error(`Session is ${session.status}, cannot resume`);
   }
   return toSnapshot(session);
 }
@@ -161,7 +177,7 @@ export async function submitAnswer(
   const marked = await markAnswer(input.questionId, input.selectedKey);
   const xpGained = xpForAnswer(marked.isCorrect, marked.difficulty);
 
-  // Learning Brain update
+  // Learning Brain update (creates QuestionAttempt + mastery/SM-2/confidence)
   const brain = await updateAfterQuestionAttempt({
     userId: session.userId,
     questionId: input.questionId,
@@ -175,8 +191,6 @@ export async function submitAnswer(
     quizAttemptId: session.id,
   });
 
-  // Question bank stats (updateAfterQuestionAttempt already records QuestionAttempt;
-  // still refresh aggregate stats)
   await updateQuestionStatistics(input.questionId, {
     isCorrect: marked.isCorrect,
     timeSpentMs: input.timeSpentMs,
@@ -184,16 +198,34 @@ export async function submitAnswer(
 
   await awardXp(session.userId, xpGained);
 
+  // Adaptive difficulty tracking
+  const adaptive = readAdaptive(session.config);
+  const recentResults = [...adaptive.recentResults, marked.isCorrect].slice(-10);
+  const consecutiveWrong = marked.isCorrect
+    ? 0
+    : adaptive.consecutiveWrong + 1;
+  const targetDifficulty = nextTargetDifficulty(
+    adaptive.targetDifficulty ?? marked.difficulty,
+    recentResults
+  );
+
+  const newCorrect = session.correctCount + (marked.isCorrect ? 1 : 0);
+  const newIndex = session.currentIndex + 1;
+  const answered = newIndex - session.skippedCount;
+
   const updated = await prisma.quizAttempt.update({
     where: { id: session.id },
     data: {
-      currentIndex: session.currentIndex + 1,
-      correctCount: session.correctCount + (marked.isCorrect ? 1 : 0),
+      currentIndex: newIndex,
+      correctCount: newCorrect,
       xpEarned: session.xpEarned + xpGained,
-      score:
-        ((session.correctCount + (marked.isCorrect ? 1 : 0)) /
-          session.totalQuestions) *
-        100,
+      score: (newCorrect / session.totalQuestions) * 100,
+      config: {
+        targetDifficulty,
+        recentResults,
+        consecutiveWrong,
+        injectEasier: shouldInjectEasierQuestion(consecutiveWrong),
+      },
     },
   });
 
@@ -201,6 +233,12 @@ export async function submitAnswer(
     xpGained,
     masteryDelta: brain.conceptMastery,
     confidence: brain.confidence,
+    progress: {
+      answered: Math.max(0, answered),
+      correct: newCorrect,
+      skipped: session.skippedCount,
+      remaining: Math.max(0, session.totalQuestions - newIndex),
+    },
   });
 
   return { feedback, session: toSnapshot(updated) };
@@ -253,8 +291,6 @@ export async function finishSession(
     where: { id: sessionId },
   });
 
-  const answered = session.correctCount + (session.currentIndex - session.correctCount - session.skippedCount);
-  // safer accuracy from attempts
   const attempts = await prisma.questionAttempt.findMany({
     where: { quizAttemptId: sessionId, skipped: false },
   });
