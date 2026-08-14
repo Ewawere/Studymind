@@ -4,6 +4,7 @@
 
 import { prisma } from "@/lib/prisma";
 import type { FeatureFeedbackInput } from "./types";
+import type { Prisma } from "@prisma/client";
 
 export async function submitFeatureFeedback(input: FeatureFeedbackInput) {
   if (!input.userId) throw new Error("userId is required");
@@ -24,7 +25,7 @@ export async function submitFeatureFeedback(input: FeatureFeedbackInput) {
         comment: input.comment?.trim().slice(0, 2000),
         wouldRecommend: input.wouldRecommend,
         meta: input.meta,
-      },
+      } as Prisma.InputJsonValue,
     },
   });
 
