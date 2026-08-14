@@ -5,6 +5,7 @@
 import { prisma } from "@/lib/prisma";
 import { publish } from "@/lib/platform";
 import type { BugReportInput, BugStatus } from "./types";
+import type { Prisma } from "@prisma/client";
 
 export async function submitBugReport(input: BugReportInput) {
   if (!input.title?.trim() || !input.description?.trim()) {
@@ -29,7 +30,7 @@ export async function submitBugReport(input: BugReportInput) {
         page: input.page,
         userAgent: input.userAgent,
         meta: input.meta,
-      },
+      } as Prisma.InputJsonValue,
     },
   });
 
@@ -81,7 +82,7 @@ export async function updateBugStatus(
     status,
     updatedBy: actorUserId,
     updatedAt: new Date().toISOString(),
-  };
+  } as Prisma.InputJsonValue;
   await prisma.learningEvent.update({
     where: { id: eventId },
     data: { payload },
