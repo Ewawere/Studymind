@@ -7,6 +7,7 @@ import { platformConfig } from "./config";
 import { log } from "./logging";
 import { prisma } from "@/lib/prisma";
 import { enqueue } from "./queue";
+import type { Prisma } from "@prisma/client";
 
 export type NotificationChannel = "email" | "in_app" | "push";
 
@@ -37,7 +38,7 @@ export async function sendNotification(msg: NotificationMessage) {
           subject: msg.subject,
           body: msg.body,
           meta: msg.meta,
-        },
+        } as Prisma.InputJsonValue,
       },
     });
     return { ok: true, channel: "in_app" as const };
