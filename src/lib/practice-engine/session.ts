@@ -26,6 +26,7 @@ import type {
   SessionMode,
   AdaptiveConfig,
 } from "./types";
+import type { Prisma } from "@prisma/client";
 
 function toSnapshot(row: {
   id: string;
@@ -310,7 +311,7 @@ export async function finishSession(
       score: accuracy * 100,
       correctCount: correct,
       xpEarned: session.xpEarned + bonus,
-      report: report as object,
+      report: report as Prisma.InputJsonValue,
     },
   });
 
