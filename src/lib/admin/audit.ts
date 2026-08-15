@@ -5,6 +5,7 @@
 
 import { prisma } from "@/lib/prisma";
 import type { AdminActor, AuditEntry } from "./types";
+import type { Prisma } from "@prisma/client";
 
 export async function writeAudit(
   actor: AdminActor,
@@ -24,7 +25,7 @@ export async function writeAudit(
         meta,
         actorEmail: actor.email,
         roles: actor.roles,
-      },
+      } as Prisma.InputJsonValue,
     },
   });
 }
