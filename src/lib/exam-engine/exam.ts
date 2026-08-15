@@ -37,6 +37,7 @@ import type {
   PaletteItem,
 } from "./types";
 import { DEFAULT_RULES } from "./types";
+import type { Prisma } from "@prisma/client";
 
 interface ExamConfigPayload {
   rules: ExamRules;
@@ -121,7 +122,7 @@ export async function createExam(
         endsAt: null,
         integrityEvents: [],
         selection: config.selection,
-      } satisfies ExamConfigPayload,
+      } satisfies ExamConfigPayload as Prisma.InputJsonValue,
     },
   });
 
@@ -151,7 +152,7 @@ export async function startExam(examId: string): Promise<ExamState> {
     data: {
       status: "active",
       startedAt: now,
-      config: cfg as object,
+      config: cfg as Prisma.InputJsonValue,
     },
   });
 
@@ -179,7 +180,7 @@ export async function resumeExam(examId: string): Promise<ExamState> {
     where: { id: examId },
     data: {
       status: "active",
-      config: cfg as object,
+      config: cfg as Prisma.InputJsonValue,
     },
   });
   return toState(updated);
@@ -273,7 +274,7 @@ export async function saveAnswer(opts: {
 
   const updated = await prisma.quizAttempt.update({
     where: { id: opts.examId },
-    data: { config: cfg as object },
+    data: { config: cfg as Prisma.InputJsonValue },
   });
   return toState(updated);
 }
@@ -293,7 +294,7 @@ export async function markForReview(opts: {
   });
   const updated = await prisma.quizAttempt.update({
     where: { id: opts.examId },
-    data: { config: cfg as object },
+    data: { config: cfg as Prisma.InputJsonValue },
   });
   return toState(updated);
 }
@@ -336,7 +337,7 @@ export async function navigateQuestion(opts: {
     where: { id: opts.examId },
     data: {
       currentIndex: nextIndex,
-      config: cfg as object,
+      config: cfg as Prisma.InputJsonValue,
     },
   });
   return toState(updated);
@@ -354,7 +355,7 @@ export async function recordIntegrityEvent(
   cfg.integrityEvents = appendIntegrityEvent(cfg.integrityEvents, type, meta);
   await prisma.quizAttempt.update({
     where: { id: examId },
-    data: { config: cfg as object },
+    data: { config: cfg as Prisma.InputJsonValue },
   });
 }
 
@@ -392,8 +393,8 @@ export async function submitExam(
       completedAt: new Date(),
       correctCount: correct,
       score: report.summary.percentage,
-      report: report as object,
-      config: cfg as object,
+      report: report as Prisma.InputJsonValue,
+      config: cfg as Prisma.InputJsonValue,
     },
   });
 
