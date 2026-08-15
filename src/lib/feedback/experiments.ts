@@ -7,6 +7,7 @@
 import { createHash } from "crypto";
 import { prisma } from "@/lib/prisma";
 import type { ExperimentAssignment, ExperimentDef } from "./types";
+import type { Prisma } from "@prisma/client";
 
 /** In-code experiment registry — extend as needed */
 export const EXPERIMENTS: ExperimentDef[] = [
@@ -76,7 +77,7 @@ export async function trackExperimentExposure(
     data: {
       userId,
       type: "experiment_exposure",
-      payload: { experimentKey, variant, meta },
+      payload: { experimentKey, variant, meta } as Prisma.InputJsonValue,
     },
   });
 }
@@ -91,7 +92,7 @@ export async function trackExperimentConversion(
     data: {
       userId,
       type: "experiment_conversion",
-      payload: { experimentKey, conversion, value },
+      payload: { experimentKey, conversion, value } as Prisma.InputJsonValue,
     },
   });
 }
