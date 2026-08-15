@@ -122,7 +122,7 @@ export async function getPerformanceReport(
       ) && ["submitted", "completed"].includes(s.status)
   ).length;
 
-  return {
+  const report: PerformanceReport = {
     bySubject,
     byTopic,
     byConcept,
@@ -133,4 +133,6 @@ export async function getPerformanceReport(
     examSessions,
     improvementRate: improvementRate(rows),
   };
+
+  return report;
 }
