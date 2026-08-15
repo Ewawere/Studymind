@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import type { AdminActor, QuestionAdminFilters } from "./types";
 import { assertPermission } from "./auth";
 import { writeAudit } from "./audit";
+import type { Prisma } from "@prisma/client";
 
 export async function listQuestions(
   actor: AdminActor,
@@ -106,7 +107,7 @@ export async function createQuestion(
       revisions: {
         create: {
           revisionNumber: 1,
-          snapshot: data as object,
+          snapshot: data as Prisma.InputJsonValue,
           changedBy: actor.userId,
           changeNote: "Created",
         },
@@ -136,7 +137,7 @@ export async function updateQuestion(
       revisions: {
         create: {
           revisionNumber: nextRev,
-          snapshot: patch,
+          snapshot: patch as Prisma.InputJsonValue,
           changedBy: actor.userId,
           changeNote: changeNote ?? "Updated",
         },
