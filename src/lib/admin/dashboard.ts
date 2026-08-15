@@ -34,13 +34,13 @@ export async function getAdminDashboard(
     prisma.questionImport.count({ where: { createdAt: { gte: since7 } } }),
     prisma.quizAttempt.count({
       where: {
-        createdAt: { gte: since7 },
+        startedAt: { gte: since7 },
         mode: { in: ["practice", "weakness", "revision", "challenge"] },
       },
     }),
     prisma.quizAttempt.count({
       where: {
-        createdAt: { gte: since7 },
+        startedAt: { gte: since7 },
         mode: {
           in: ["exam", "waec", "jamb", "post_utme", "mock", "practice_exam"],
         },
