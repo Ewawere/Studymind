@@ -8,6 +8,7 @@ import { platformConfig } from "@/lib/platform";
 import type { AdminActor, PlatformSettings } from "./types";
 import { assertPermission } from "./auth";
 import { writeAudit } from "./audit";
+import type { Prisma } from "@prisma/client";
 
 const DEFAULTS: PlatformSettings = {
   maintenanceMode: false,
@@ -49,7 +50,7 @@ export async function updateSettings(
     data: {
       userId: actor.userId,
       type: "platform_settings",
-      payload: next as object,
+      payload: next as Prisma.InputJsonValue,
     },
   });
 
