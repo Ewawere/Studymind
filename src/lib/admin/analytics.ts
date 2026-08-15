@@ -34,13 +34,13 @@ export async function getPlatformAnalytics(actor: AdminActor) {
     prisma.questionAttempt.count({ where: { createdAt: { gte: month } } }),
     prisma.quizAttempt.count({
       where: {
-        createdAt: { gte: month },
+        startedAt: { gte: month },
         mode: { in: ["practice", "weakness", "revision", "challenge"] },
       },
     }),
     prisma.quizAttempt.count({
       where: {
-        createdAt: { gte: month },
+        startedAt: { gte: month },
         mode: {
           in: ["exam", "waec", "jamb", "mock", "practice_exam", "post_utme"],
         },
