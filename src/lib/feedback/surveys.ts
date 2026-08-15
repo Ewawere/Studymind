@@ -4,6 +4,7 @@
 
 import { prisma } from "@/lib/prisma";
 import type { SurveyResponse } from "./types";
+import type { Prisma } from "@prisma/client";
 
 export async function submitSurvey(input: SurveyResponse) {
   if (!input.userId) throw new Error("userId is required");
@@ -16,7 +17,7 @@ export async function submitSurvey(input: SurveyResponse) {
       payload: {
         surveyId: input.surveyId.trim(),
         answers: input.answers,
-      },
+      } as Prisma.InputJsonValue,
     },
   });
 
