@@ -18,6 +18,7 @@ import {
   type ExistingQuestionProbe,
 } from "./duplicates";
 import { parseCsvQuestions, parseJsonQuestions } from "./parse";
+import type { Prisma } from "@prisma/client";
 
 export interface ImportOptions {
   format: "csv" | "json";
@@ -223,7 +224,7 @@ export async function importQuestions(
             revisions: {
               create: {
                 revisionNumber: 1,
-                snapshot: input as object,
+                snapshot: input as Prisma.InputJsonValue,
                 changeNote: "Initial import",
               },
             },
@@ -265,7 +266,7 @@ export async function importQuestions(
               url: m.url,
               altText: m.altText,
               order: m.order ?? idx,
-              metadata: m.metadata as object | undefined,
+              metadata: m.metadata as Prisma.InputJsonValue | undefined,
             })),
           });
         }
@@ -327,7 +328,7 @@ export async function importQuestions(
       skippedCount,
       duplicateCount,
       errorCount,
-      report: report as object,
+      report: report as Prisma.InputJsonValue,
     },
   });
 
