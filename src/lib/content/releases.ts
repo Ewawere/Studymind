@@ -10,6 +10,7 @@ import type {
   ContentReleaseStatus,
   ContentReleaseSummary,
 } from "./types";
+import type { Prisma } from "@prisma/client";
 
 const TYPE = "content_release";
 
@@ -36,7 +37,7 @@ export async function createRelease(
         questionIds: [] as string[],
         unitIds: [] as string[],
         importIds: [] as string[],
-      },
+      } as Prisma.InputJsonValue,
     },
   });
 
@@ -90,7 +91,7 @@ export async function setReleaseStatus(
       : {}),
     updatedBy: actorUserId,
     updatedAt: new Date().toISOString(),
-  };
+  } as Prisma.InputJsonValue;
 
   await prisma.learningEvent.update({
     where: { id: release.id },
@@ -132,7 +133,7 @@ export async function attachImportToRelease(
         ...(event.payload as object),
         importIds,
         questionIds,
-      },
+      } as Prisma.InputJsonValue,
     },
   });
 
