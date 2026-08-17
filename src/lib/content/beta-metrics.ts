@@ -30,13 +30,13 @@ export async function getBetaMetricsSnapshot(opts?: { sinceDays?: number }) {
     prisma.questionAttempt.count({ where: { createdAt: { gte: since } } }),
     prisma.quizAttempt.count({
       where: {
-        createdAt: { gte: since },
+        startedAt: { gte: since },
         mode: { in: ["practice", "weakness", "revision", "challenge"] },
       },
     }),
     prisma.quizAttempt.count({
       where: {
-        createdAt: { gte: since },
+        startedAt: { gte: since },
         mode: { in: ["exam", "waec", "jamb", "mock", "practice_exam"] },
         status: "completed",
       },
