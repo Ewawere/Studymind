@@ -7,6 +7,21 @@ import { recommendNextSession } from "@/lib/practice-engine";
 import { getPrediction } from "./predictions";
 import type { AnalyticsRecommendation } from "./types";
 
+function toPriority(
+  value: unknown
+): AnalyticsRecommendation["priority"] {
+  if (value === "critical" || value === "high" || value === "medium" || value === "low") {
+    return value;
+  }
+  if (typeof value === "number") {
+    if (value >= 4) return "critical";
+    if (value >= 3) return "high";
+    if (value >= 2) return "medium";
+    return "low";
+  }
+  return "medium";
+}
+
 export async function getAnalyticsRecommendations(
   userId: string
 ): Promise<AnalyticsRecommendation[]> {
@@ -29,7 +44,7 @@ export async function getAnalyticsRecommendations(
             : "topic",
       title: r.title,
       reason: r.reason,
-      priority: (r.priority as AnalyticsRecommendation["priority"]) ?? "medium",
+      priority: toPriority(r.priority),
       meta: {
         conceptId: r.conceptId,
         subjectId: r.subjectId,
@@ -48,7 +63,7 @@ export async function getAnalyticsRecommendations(
             : "practice",
       title: s.title,
       reason: s.reason,
-      priority: s.priority,
+      priority: toPriority(s.priority),
       meta: {
         mode: s.mode,
         questionCount: s.questionCount,
