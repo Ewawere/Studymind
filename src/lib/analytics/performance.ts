@@ -128,7 +128,7 @@ export async function getPerformanceReport(
     byConcept,
     byDifficulty,
     skipRate,
-    guessProxy,
+    guessHeuristic: guessProxy,
     practiceSessions,
     examSessions,
     improvementRate: improvementRate(rows),
