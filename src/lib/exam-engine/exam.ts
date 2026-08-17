@@ -47,6 +47,10 @@ interface ExamConfigPayload {
   selection: string;
 }
 
+function toJson(value: unknown): Prisma.InputJsonValue {
+  return value as Prisma.InputJsonValue;
+}
+
 function readConfig(raw: unknown): ExamConfigPayload {
   const c = (raw ?? {}) as Partial<ExamConfigPayload>;
   return {
@@ -103,6 +107,14 @@ export async function createExam(
     rules,
   });
 
+  const configPayload: ExamConfigPayload = {
+    rules,
+    answers: {},
+    endsAt: null,
+    integrityEvents: [],
+    selection: config.selection,
+  };
+
   const row = await prisma.quizAttempt.create({
     data: {
       userId,
@@ -116,13 +128,7 @@ export async function createExam(
       currentIndex: 0,
       totalQuestions: questionIds.length,
       timeLimitSec: config.timeLimitSec,
-      config: {
-        rules,
-        answers: {},
-        endsAt: null,
-        integrityEvents: [],
-        selection: config.selection,
-      } satisfies ExamConfigPayload as Prisma.InputJsonValue,
+      config: toJson(configPayload),
     },
   });
 
@@ -152,7 +158,7 @@ export async function startExam(examId: string): Promise<ExamState> {
     data: {
       status: "active",
       startedAt: now,
-      config: cfg as Prisma.InputJsonValue,
+      config: toJson(cfg),
     },
   });
 
@@ -180,7 +186,7 @@ export async function resumeExam(examId: string): Promise<ExamState> {
     where: { id: examId },
     data: {
       status: "active",
-      config: cfg as Prisma.InputJsonValue,
+      config: toJson(cfg),
     },
   });
   return toState(updated);
@@ -274,7 +280,7 @@ export async function saveAnswer(opts: {
 
   const updated = await prisma.quizAttempt.update({
     where: { id: opts.examId },
-    data: { config: cfg as Prisma.InputJsonValue },
+    data: { config: toJson(cfg) },
   });
   return toState(updated);
 }
@@ -294,7 +300,7 @@ export async function markForReview(opts: {
   });
   const updated = await prisma.quizAttempt.update({
     where: { id: opts.examId },
-    data: { config: cfg as Prisma.InputJsonValue },
+    data: { config: toJson(cfg) },
   });
   return toState(updated);
 }
@@ -337,7 +343,7 @@ export async function navigateQuestion(opts: {
     where: { id: opts.examId },
     data: {
       currentIndex: nextIndex,
-      config: cfg as Prisma.InputJsonValue,
+      config: toJson(cfg),
     },
   });
   return toState(updated);
@@ -355,7 +361,7 @@ export async function recordIntegrityEvent(
   cfg.integrityEvents = appendIntegrityEvent(cfg.integrityEvents, type, meta);
   await prisma.quizAttempt.update({
     where: { id: examId },
-    data: { config: cfg as Prisma.InputJsonValue },
+    data: { config: toJson(cfg) },
   });
 }
 
@@ -393,8 +399,8 @@ export async function submitExam(
       completedAt: new Date(),
       correctCount: correct,
       score: report.summary.percentage,
-      report: report as Prisma.InputJsonValue,
-      config: cfg as Prisma.InputJsonValue,
+      report: toJson(report),
+      config: toJson(cfg),
     },
   });
 
