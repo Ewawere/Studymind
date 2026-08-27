@@ -4,6 +4,8 @@
 
 import type { AnswerDraft, ScoreSummary } from "@/lib/assessment";
 
+export type { AnswerDraft };
+
 export type ExamMode =
   | "practice_exam"
   | "waec"
