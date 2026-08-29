@@ -20,6 +20,10 @@ import {
 import { parseCsvQuestions, parseJsonQuestions } from "./parse";
 import type { Prisma } from "@prisma/client";
 
+function toJson(value: unknown): Prisma.InputJsonValue {
+  return value as Prisma.InputJsonValue;
+}
+
 export interface ImportOptions {
   format: "csv" | "json";
   fileName?: string;
@@ -200,7 +204,9 @@ export async function importQuestions(
             correctKey: input.correctKey ?? null,
             authorDifficulty: input.authorDifficulty ?? 3,
             explanation: input.explanation ?? null,
-            commonMistakes: input.commonMistakes ?? undefined,
+            commonMistakes: input.commonMistakes
+              ? toJson(input.commonMistakes)
+              : undefined,
             learningObjectives: input.learningObjectives ?? [],
             estimatedTimeSec: input.estimatedTimeSec ?? null,
             source: input.source ?? null,
@@ -224,7 +230,7 @@ export async function importQuestions(
             revisions: {
               create: {
                 revisionNumber: 1,
-                snapshot: input as Prisma.InputJsonValue,
+                snapshot: toJson(input),
                 changeNote: "Initial import",
               },
             },
@@ -266,7 +272,7 @@ export async function importQuestions(
               url: m.url,
               altText: m.altText,
               order: m.order ?? idx,
-              metadata: m.metadata as Prisma.InputJsonValue | undefined,
+              metadata: m.metadata != null ? toJson(m.metadata) : undefined,
             })),
           });
         }
@@ -328,7 +334,7 @@ export async function importQuestions(
       skippedCount,
       duplicateCount,
       errorCount,
-      report: report as Prisma.InputJsonValue,
+      report: toJson(report),
     },
   });
 
