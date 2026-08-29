@@ -13,16 +13,18 @@ interface Entry<T> {
 
 const memory = new Map<string, Entry<unknown>>();
 
-let redis: {
+type RedisLike = {
   get: (k: string) => Promise<string | null>;
   set: (k: string, v: string, mode: string, ttl: number) => Promise<unknown>;
   del: (...keys: string[]) => Promise<unknown>;
   keys: (pattern: string) => Promise<string[]>;
-} | null = null;
+};
+
+let redis: RedisLike | null = null;
 
 let redisInitAttempted = false;
 
-async function getRedis() {
+async function getRedis(): Promise<RedisLike | null> {
   if (redisInitAttempted) return redis;
   redisInitAttempted = true;
   if (!platformConfig.redisUrl) return null;
@@ -31,7 +33,8 @@ async function getRedis() {
     const mod = await import("ioredis").catch(() => null);
     if (!mod) return null;
     const client = new mod.default(platformConfig.redisUrl);
-    redis = client;
+    // ioredis set() overloads don't match our narrow (mode, ttl) shape — cast is safe
+    redis = client as unknown as RedisLike;
     return redis;
   } catch {
     return null;
