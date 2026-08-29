@@ -28,6 +28,10 @@ import type {
 } from "./types";
 import type { Prisma } from "@prisma/client";
 
+function toJson(value: unknown): Prisma.InputJsonValue {
+  return value as Prisma.InputJsonValue;
+}
+
 function toSnapshot(row: {
   id: string;
   userId: string;
@@ -101,11 +105,11 @@ export async function createPracticeSession(
       currentIndex: 0,
       totalQuestions: queue.length,
       timeLimitSec: options.timeLimitSec ?? null,
-      config: {
+      config: toJson({
         targetDifficulty: options.targetDifficulty ?? (mode === "challenge" ? 4 : 3),
         recentResults: [],
         consecutiveWrong: 0,
-      } satisfies AdaptiveConfig,
+      } satisfies AdaptiveConfig),
     },
   });
 
@@ -221,12 +225,12 @@ export async function submitAnswer(
       correctCount: newCorrect,
       xpEarned: session.xpEarned + xpGained,
       score: (newCorrect / session.totalQuestions) * 100,
-      config: {
+      config: toJson({
         targetDifficulty,
         recentResults,
         consecutiveWrong,
         injectEasier: shouldInjectEasierQuestion(consecutiveWrong),
-      },
+      }),
     },
   });
 
@@ -311,7 +315,7 @@ export async function finishSession(
       score: accuracy * 100,
       correctCount: correct,
       xpEarned: session.xpEarned + bonus,
-      report: report as Prisma.InputJsonValue,
+      report: toJson(report),
     },
   });
 
