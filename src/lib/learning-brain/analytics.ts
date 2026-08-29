@@ -6,6 +6,8 @@
 import type {
   ExamReadiness,
   LearningInsights,
+  PerformanceTrends,
+  PeriodStats,
   UserLearningContext,
 } from "./types";
 import type { ConceptSnapshot } from "./recommendations";
@@ -112,6 +114,17 @@ export function calculateExamReadiness(input: AnalyticsInput): ExamReadiness {
   };
 }
 
+function emptyPeriod(days: 7 | 30 | 90): PeriodStats {
+  return {
+    days,
+    attempted: 0,
+    correct: 0,
+    accuracy: 0,
+    averageMastery: null,
+    studyMinutes: 0,
+  };
+}
+
 /**
  * Aggregate learning insights for dashboards / AI Coach.
  */
@@ -161,6 +174,33 @@ export function generateLearningInsights(
 
   const readiness = calculateExamReadiness(input);
 
+  const narratives: string[] = [];
+  if (totalAttempted === 0) {
+    narratives.push("Start practicing to unlock personalized insights.");
+  } else {
+    narratives.push(
+      `Overall accuracy is ${Math.round(accuracy)}% across ${totalAttempted} attempts.`
+    );
+    if (weakestSubjects[0]) {
+      narratives.push(
+        `Focus next on ${weakestSubjects[0].name ?? "your weakest subject"} (mastery ${weakestSubjects[0].mastery}%).`
+      );
+    }
+    if (currentStreak > 0) {
+      narratives.push(`Current study streak: ${currentStreak} day${currentStreak === 1 ? "" : "s"}.`);
+    }
+    if (readiness.score >= 0) {
+      narratives.push(readiness.message);
+    }
+  }
+
+  const trends: PerformanceTrends = {
+    last7Days: emptyPeriod(7),
+    last30Days: emptyPeriod(30),
+    last90Days: emptyPeriod(90),
+    direction: masteryTrend === "unknown" ? "unknown" : masteryTrend,
+  };
+
   return {
     totalAttempted,
     totalCorrect,
@@ -173,6 +213,8 @@ export function generateLearningInsights(
     longestStreak,
     estimatedExamScore: readiness.score,
     masteryTrend,
+    narratives,
+    trends,
   };
 }
 
