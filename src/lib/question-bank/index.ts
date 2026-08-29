@@ -30,6 +30,11 @@ import {
   recalibrateDifficulty,
   recalibrateAllDifficulties,
 } from "./statistics";
+import type { Prisma } from "@prisma/client";
+
+function toJson(value: unknown): Prisma.InputJsonValue {
+  return value as Prisma.InputJsonValue;
+}
 
 export * from "./types";
 export { validateQuestion, hashStem, normalizeStem } from "./validation";
@@ -70,13 +75,13 @@ export async function reviseQuestion(
       data: {
         questionId,
         revisionNumber: nextRevision,
-        snapshot: {
+        snapshot: toJson({
           stem: existing.stem,
           correctKey: existing.correctKey,
           explanation: existing.explanation,
           authorDifficulty: existing.authorDifficulty,
           options: existing.options,
-        },
+        }),
         changedBy: patch.changedBy,
         changeNote: patch.changeNote ?? "Revision",
       },
@@ -102,7 +107,12 @@ export async function reviseQuestion(
           ? String(patch.bloomLevel).toLowerCase()
           : existing.bloomLevel,
         keywords: patch.keywords ?? existing.keywords,
-        commonMistakes: patch.commonMistakes ?? existing.commonMistakes ?? undefined,
+        commonMistakes:
+          patch.commonMistakes != null
+            ? toJson(patch.commonMistakes)
+            : existing.commonMistakes != null
+              ? toJson(existing.commonMistakes)
+              : undefined,
         revisionNumber: nextRevision,
       },
     });
