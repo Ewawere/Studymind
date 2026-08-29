@@ -9,8 +9,9 @@ import type {
   UserLearningContext,
   PriorityLevel,
   ConceptEdge,
+  SM2State,
 } from "./types";
-import { isDue, type SM2State } from "./sm2";
+import { isDue } from "./sm2";
 import { estimateRetention, needsProactiveReview } from "./forgetting";
 
 export interface ConceptSnapshot {
