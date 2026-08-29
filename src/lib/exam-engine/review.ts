@@ -65,8 +65,8 @@ export async function getExamReview(
       index,
       stem: q.stem,
       selectedKey: a?.selectedKey ?? null,
-      correctKey:
-        reviewMode === "disabled" ? null : q.correctKey,
+      // reviewMode is never "disabled" here (early return above)
+      correctKey: q.correctKey,
       isCorrect,
       explanation:
         reviewMode === "full_explanations" || reviewMode === "mistakes_only"
