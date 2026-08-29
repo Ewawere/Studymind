@@ -19,7 +19,7 @@ export async function selectExamQuestions(
   config: ExamConfig
 ): Promise<string[]> {
   if (config.selection === "manual" && config.questionIds?.length) {
-    return config.shuffleQuestions !== false
+    return config.rules?.shuffleQuestions !== false
       ? shuffle(config.questionIds)
       : [...config.questionIds];
   }
