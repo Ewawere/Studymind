@@ -10,6 +10,7 @@ import type {
   PlanItem,
   UserLearningContext,
   Recommendation,
+  ConceptEdge,
 } from "./types";
 import { recommendNextTopics, type ConceptSnapshot } from "./recommendations";
 
@@ -19,10 +20,11 @@ import { recommendNextTopics, type ConceptSnapshot } from "./recommendations";
 export function generateDailyPlan(
   concepts: ConceptSnapshot[],
   ctx: UserLearningContext,
-  now: Date = new Date()
+  now: Date = new Date(),
+  edges: ConceptEdge[] = []
 ): DailyPlan {
   const target = Math.max(15, ctx.dailyStudyTargetMin || 45);
-  const recommendations = recommendNextTopics(concepts, ctx, now);
+  const recommendations = recommendNextTopics(concepts, ctx, edges, now);
 
   const items: PlanItem[] = [];
   let used = 0;
@@ -82,6 +84,7 @@ function recommendationToPlanItem(
     study_next: "tutor",
     revise_before_exam: "review",
     practice_mixed: "mixed",
+    prerequisite: "review",
   };
 
   return {
